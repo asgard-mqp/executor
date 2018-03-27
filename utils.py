@@ -1,24 +1,31 @@
 
-from math import sin, cos, degrees
+from geometry_msgs.msg import Quaternion
+from tf.transformations import quaternion_from_euler
 
-mt = (,)
+from math import sin, cos, degrees, radians
+
+mt = tuple()
 
 def yaw_from_text(heading):
-  heading = heading.lower().strip()
+  try:
+    heading = heading.lower().strip()
+  except AttributeError:
+    return heading
+
   return {
-    'up': 90,
-    'down': 270,
+    'up': -90,
+    'down': 90,
     'left': 180,
     'right': 0,
-    'upleft': 45 + 90,
-    'upright': 0 + 45,
-    'downleft': 180 + 45
-    'downright': 270 + 45
+    'upleft': -(90 + 45),
+    'upright': -45,
+    'downleft': 90 + 45,
+    'downright': 45
   }[heading]
 
 def quat_from_text(heading):
   angle = yaw_from_text(heading)
-  return Quaternion(*quaternion_from_euler(0, 0, angle))
+  return Quaternion(*quaternion_from_euler(0, 0, radians(angle)))
 
 def in_front(pose, distance):
   x, y, yaw = pose
