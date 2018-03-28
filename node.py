@@ -1,6 +1,6 @@
 import rospy, actionlib
 from move_base_msgs.msg import MoveBaseGoal, MoveBaseAction
-from std_msgs.msg import String, Bool
+from std_msgs.msg import String, Int16, Bool
 from geometry_msgs.msg import PoseStamped, Twist
 
 from utils import quat_from_text, yaw_from_text, mt, in_front
@@ -29,7 +29,7 @@ def to_pose(x, y, quat):
 def register():
   global nav, arm_up, twist
   rospy.Subscriber("/asgard/action", String, new_action)
-  rospy.Subscriber("/arm_state", String, arm_state)
+  rospy.Subscriber("/arm_state", Int16, arm_state)
   nav = actionlib.SimpleActionClient('/move_base', MoveBaseAction)
   arm_up = rospy.Publisher("/arm_goal", Bool, queue_size=1)
   twist = rospy.Publisher("/cmd_vel", Twist, queue_size=1)
@@ -58,7 +58,7 @@ def new_action(data):
 
 def next_action():
   global current_action
-  rospy.sleep(0.5)
+  rospy.sleep(1)
   print "=> ", current_action, " // ", actions
 
   if actions:
@@ -83,7 +83,7 @@ def drive_to(x, y, direction, callback=None):
   nav.send_goal(nav_pose, done_cb=nav_complete)
 
 def pickup_goal():
-  x, y, yaw = in_front(current_expected_location, 1)
+  x, y, yaw = in_front(current_expected_location, 1.2)
 
   subactions = [
     (move_arm_down, mt),
@@ -98,13 +98,13 @@ def pickup_goal():
 
 goals = [
   (0.75, 6 - 0.75),
-  (0.66, 6 - 1.66),
-  (1,    6 - 1),
-  (1.66, 6 - 0.66),
+  (0.75, 6 - 1.75),
+  (1.20, 6 - 1.20),
+  (1.75, 6 - 0.75),
 
   (6 - 0.75, 0.75),
   (6 - 1.75, 0.75),
-  (6 - 1.25, 1.25),
+  (6 - 1.20, 1.20),
   (6 - 0.75, 1.75),
 ]
 
@@ -112,19 +112,20 @@ def score_goal(index):
   index = int(index)
   heading = 'DOWNLEFT' if index < 4 else 'UPRIGHT'
   x, y = goals[index]
-  backup = in_front((x, y, yaw_from_text(heading)), -0.25)
-  backup2 = in_front((x, y, yaw_from_text(heading)), -0.5)
+  backup = in_front((x, y, yaw_from_text(heading)), -0.75)
 
   subactions = []
   if index == 0 or index == 4:
     staging_x, staging_y = goals[index + 2]
-    # backup = in_front((staging_x, staging_y, yaw_from_text(heading)), -0.5)
+    backup = in_front((staging_x, staging_y, yaw_from_text(heading)), -0.75)
 
     subactions += [
       (drive_to, (staging_x, staging_y, heading)),
-      (push_velocity, mt),
+      (push_velocity, (0.5,)),
+      # (drive_to, (x, y, heading)),
       (move_arm_down, mt),
       (push_velocity, (-0.5,)),
+      #(drive_to, backup),
       (move_arm_up, mt)
     ]
 
@@ -133,7 +134,6 @@ def score_goal(index):
       (drive_to, (x, y, heading)),
       (move_arm_down, mt),
       (drive_to, backup),
-      (drive_to, backup2),
       (move_arm_up, mt)
     ]
 
@@ -146,7 +146,7 @@ def push_velocity(vel=0.5, dur=1.5):
   fw = Twist()
   fw.linear.x = vel
   twist.publish(fw)
-  twist.publish(fw)
+  # twist.publish(fw)
 
   rospy.sleep(dur)
   twist.publish(Twist())
@@ -167,6 +167,7 @@ def start():
   with open('plan') as f:
     for line in f:
       line = line.strip()
+      if line.startswith("#"): continue
       if line: new_action(line)
 
 if __name__ == '__main__':
