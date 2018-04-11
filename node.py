@@ -58,11 +58,12 @@ def new_action(data):
 
 def next_action():
   global current_action
-  rospy.sleep(1)
-  print "=> ", current_action, " // ", actions
+  print "completed: ", current_action
+  rospy.sleep(0.25)
 
   if actions:
     current_action = actions.pop(0)
+    print "=> ", current_action, " // ", actions
     current_action[0](*current_action[1])
   else:
     current_action = None
@@ -83,10 +84,11 @@ def drive_to(x, y, direction, callback=None):
   nav.send_goal(nav_pose, done_cb=nav_complete)
 
 def pickup_goal():
-  x, y, yaw = in_front(current_expected_location, 1.2)
+  x, y, yaw = in_front(current_expected_location, 1.25)
 
   subactions = [
     (move_arm_down, mt),
+    # (push_velocity, (0.5,)),
     (drive_to, (x, y, yaw)),
     (move_arm_up, mt)
   ]
@@ -98,14 +100,14 @@ def pickup_goal():
 
 goals = [
   (0.75, 6 - 0.75),
-  (0.75, 6 - 1.75),
-  (1.20, 6 - 1.20),
-  (1.75, 6 - 0.75),
+  (1,   6 - 2),
+  (1.5, 6 - 1.5),
+  (2,   6 - 1),
 
   (6 - 0.75, 0.75),
-  (6 - 1.75, 0.75),
-  (6 - 1.20, 1.20),
-  (6 - 0.75, 1.75),
+  (6 - 2,   1),
+  (6 - 1.5, 1.5),
+  (6 - 1,   2),
 ]
 
 def score_goal(index):
@@ -121,10 +123,10 @@ def score_goal(index):
 
     subactions += [
       (drive_to, (staging_x, staging_y, heading)),
-      (push_velocity, (0.5,)),
+      (push_velocity, (0.4,)),
       # (drive_to, (x, y, heading)),
       (move_arm_down, mt),
-      (push_velocity, (-0.5,)),
+      (push_velocity, (-0.4,)),
       #(drive_to, backup),
       (move_arm_up, mt)
     ]
@@ -132,8 +134,9 @@ def score_goal(index):
   else:
     subactions += [
       (drive_to, (x, y, heading)),
+      (push_velocity, (0.25, 1)),
       (move_arm_down, mt),
-      (drive_to, backup),
+      (push_velocity, (-0.25, 1)),
       (move_arm_up, mt)
     ]
 
@@ -154,12 +157,12 @@ def push_velocity(vel=0.5, dur=1.5):
 
 def move_arm_down():
   arm_up.publish(Bool(False))
-  rospy.sleep(1)
+  rospy.sleep(0.5)
   next_action()
 
 def move_arm_up():
   arm_up.publish(Bool(True))
-  rospy.sleep(1)
+  rospy.sleep(0.5)
   next_action()
 
 def start():
